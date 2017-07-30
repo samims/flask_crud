@@ -1,0 +1,3 @@
+Flask-WTF
+passlib
+flask-mysqldb
