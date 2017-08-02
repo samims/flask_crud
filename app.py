@@ -1,5 +1,5 @@
 from flask import Flask, render_template, flash, url_for, redirect, session, logging, request
-from data import Articles
+#from data import Articles
 from flask_mysqldb import MySQL
 from wtforms import Form, StringField, TextAreaField, PasswordField, validators
 from passlib.hash import sha256_crypt
@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'abc'
+app.config['MYSQL_PASSWORD'] = 'Dingdong'
 app.config['MYSQL_DB'] = 'myflaskapp'
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
@@ -19,7 +19,8 @@ app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
 mysql = MySQL(app)
 
-Articles = Articles()
+#Articles = Articles()
+
 
 # home
 
@@ -36,12 +37,29 @@ def about():
 
 @app.route('/articles')
 def articles():
-    return render_template('articles.html', articles=Articles)
+    # create cursor
+    cur = mysql.connection.cursor()
+
+    # Get Articles
+
+    result = cur.execute("Select * from articles")
+    articles = cur.fetchall()
+    if result > 0:
+        return render_template("articles.html", articles=articles)
+    else:
+        msg = "No articles Found"
+        return render_template('articles.html', msg=msg)
+    cur.close()
 
 
 @app.route('/article/<string:id>/')
 def article(id):
-    return render_template('article.html', id=id)
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * from articles WHERE id = %s",[id])
+    article = cur.fetchone()
+    cur.close()
+
+    return render_template('article.html', article=article)
 
 
 # RegisterForm class
@@ -54,6 +72,7 @@ class RegisterForm(Form):
         validators.EqualTo('confirm', message='Password do not match')
     ])
     confirm = PasswordField('Confirm Password')
+
 
 # Registration
 
@@ -132,6 +151,7 @@ def is_logged_in(f):
         else:
             flash('Unauthorized, Please login', 'danger')
             return redirect(url_for('login'))
+
     return wrap
 
 
@@ -139,13 +159,60 @@ def is_logged_in(f):
 @app.route('/logout')
 def logout():
     session.clear()
-    return "<h1> You are logged out </h1>"
+    flash('Logged Out', 'success')
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/dashboard')
 @is_logged_in
 def dashboard():
-    return render_template('dashboard.html')
+    # create cursor
+    cur = mysql.connection.cursor()
+
+    # Get Articles
+
+    result = cur.execute("Select * from articles")
+    articles = cur.fetchall()
+    if result >0:
+        return render_template("dashboard.html", articles=articles)
+    else:
+        msg = "No articles Found"
+        return render_template('dashboard.html', msg=msg)
+    cur.close()
+
+
+# Article form class
+class ArticleForm(Form):
+    title = StringField('Title', [validators.length(min=1, max=200)])
+    body = TextAreaField('Body', [validators.Length(min=30)])
+
+
+# Add Article
+@app.route('/add_article', methods=['GET', 'POST'])
+@is_logged_in
+def add_article():
+    form = ArticleForm(request.form)
+    if request.method == 'POST' and form.validate():
+        title = form.title.data
+        body = form.body.data
+
+        # create cursor
+        cur = mysql.connection.cursor()
+
+        # Execute
+        cur.execute("INSERT INTO articles(title, body,author) VALUES(%s, %s, %s)", (title, body, session['username']))
+
+        # commit
+        mysql.connection.commit()
+
+        # close connection
+        cur.close()
+
+        flash('Article Created', 'success')
+
+        return redirect(url_for('dashboard'))
+
+    return render_template('add_article.html', form=form)
 
 
 if __name__ == '__main__':

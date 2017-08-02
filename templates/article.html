@@ -1,6 +1,13 @@
 {% extends 'layout.html' %}
 
 {% block body %}
-    <h1>{{id}}</h1>
+<h1>{{article.title}}</h1>
+<median>Written by {{article.author}} on {{article.date}}</median>
+<hr>
+<div>
+    {{article.body | safe}}
+</div>
+
+
 
 {% endblock %}
