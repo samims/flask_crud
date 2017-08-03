@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'Dingdong'
+app.config['MYSQL_PASSWORD'] = 'abc123'
 app.config['MYSQL_DB'] = 'myflaskapp'
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
@@ -215,6 +215,68 @@ def add_article():
     return render_template('add_article.html', form=form)
 
 
+# Edit Article
+@app.route('/edit_article/<string:id>', methods=['GET', 'POST'])
+@is_logged_in
+def edit_article(id):
+    # Create Cursor
+    cur = mysql.connection.cursor()
+
+    # Get article by id
+    result = cur.execute("SELECT * FROM articles WHERE id = %s", [id])
+    article = cur.fetchone()
+
+    # Get Form
+    form = ArticleForm(request.form)
+
+    # Data
+    form.title.data = article['title']
+    form.body.data = article['body']
+
+    if request.method == 'POST' and form.validate():
+        title = request.form['title']
+        body = request.form['body']
+
+        # create cursor
+        cur = mysql.connection.cursor()
+
+        # Execute
+        cur.execute("UPDATE articles SET title = %s, body = %s  WHERE id=%s", (title, body,id))
+
+        # commit
+        mysql.connection.commit()
+
+        # close connection
+        cur.close()
+
+        flash('Article updated', 'success')
+
+        return redirect(url_for('dashboard'))
+
+    return render_template('edit_article.html', form=form)
+
+
+# Delete article
+@app.route('/delete_article/<string:id>', methods=['POST'])
+@is_logged_in
+def delete_article(id):
+    # Create Cursor
+    cur = mysql.connection.cursor()
+
+    # Execute
+    cur.execute("DELETE FROM articles WHERE  id = %s", [id])
+
+    # Commit to Database
+    mysql.connection.commit()
+
+    # connection closed
+    cur.close()
+
+    flash('Article Deleted', 'success')
+
+    return redirect(url_for('dashboard'))
+
+
 if __name__ == '__main__':
     app.secret_key = 'secret123'
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=False)
